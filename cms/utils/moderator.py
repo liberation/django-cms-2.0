@@ -67,13 +67,13 @@ def update_moderation_message(page, message):
     
 def page_moderator_state(request, page):
     """Return moderator page state from page.moderator_state, but also takes 
-    look if current user is in the approvement path, and should approve the this 
+    look if current user is in the approvement path, and should approve this 
     page. In this case return 100 as an state value. 
     
     Returns:
         dict(state=state, label=label)
     """
-    state, label = page.moderator_state, ""
+    state, label = page.moderator_state, _('approve')
     
     under_moderation = page.get_moderator_queryset()
     
