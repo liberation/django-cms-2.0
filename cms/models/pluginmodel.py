@@ -1,3 +1,4 @@
+# -*- coding:Utf-8 -*-
 from django.db.models.base import ModelBase
 from cms.models.pagemodel import Page
 from os.path import join
@@ -101,6 +102,9 @@ class CMSPlugin(MpttPublisher):
         if instance and not (admin and not plugin.admin_preview):
             if edit:
                 content = '<div id="cms_plugin_%s_%s" class="cms_plugin_holder" rel="%s" type="%s">' % (instance.page_id, instance.pk, instance.placeholder, instance.plugin_type)
+                #Reduce mode, by Liberation
+                content += u'<div class="cms_plugin_reduced">%s – %s</div>' % (plugin.name, instance)
+                content += '<div class="cms_plugin_extended">'
             else:
                 content = ""
             context = plugin.render(context, instance, placeholder)
@@ -109,6 +113,7 @@ class CMSPlugin(MpttPublisher):
                 raise ValidationError("plugin has no render_template: %s" % plugin.__class__)
             content += render_to_string(template, context)
             if edit:
+                content += "</div>"
                 content += "</div>"
             return mark_safe(content)
         else:
