@@ -88,7 +88,7 @@ function move(direction){
 	}
 	$("#cms_plugin_overlay").hide();
 	hideCMStoolbarSubmenus();
-	$("#cms_plugin_"+page_id+"_"+plugin_id).makeoverlay({id:"cms_plugin_overlay2"});
+	$("#cms_plugin_"+page_id+"_"+plugin_id).makeoverlay({id:"cms_plugin_overlay2", fade_in: 0, fade_out: 800});
 }
 
 function hide_iframe(){
@@ -341,25 +341,31 @@ $(document).ready(function () {
 		return false;
 	});
 
-	$.fn.makeoverlay = function(options){
-		var pluginH = $(this).height();
-		var pluginHmin = 10;
-		if(pluginH<pluginHmin){pluginH=pluginHmin}
-		var overlay = $('#' + options.id);
-		overlay.css({
-			'width'		: $(this).width()+'px',
-			'height'	: pluginH+'px',
-			//'left'		: $(this).offset().left+'px',
-			//'top'		: $(this).offset().top+'px'
-		})
-		overlay.insertAfter($(this).children(':last:not(#'+options.id+')'));
-		overlay.show();
-		if(options.id == "cms_plugin_overlay2"){
-			overlay.fadeIn(0);
-			overlay.fadeOut(800, function () {
-				overlay.hide();
-			})
-		}
+    $.fn.makeoverlay = function(options){
+    var options = $.extend(  
+        {  
+            'id' : 'cms_plugin_overlay',  
+            'fade_in' : null,  
+            'fade_out' : null,  
+        }, options || {} );  
+    var pluginH = $(this).height();
+    var pluginHmin = 10;
+    if(pluginH<pluginHmin){pluginH=pluginHmin}
+    var overlay = $('#' + options.id);
+    overlay.css({
+        'width'		: $(this).width()+'px',
+        'height'	: pluginH+'px',
+        //'left'		: $(this).offset().left+'px',
+        //'top'		: $(this).offset().top+'px'
+    })
+    overlay.insertAfter($(this).children(':last:not(#'+options.id+')'));
+    overlay.show();
+    if(options.fade_in != null)
+        overlay.fadeIn(options.fade_in);
+    if(options.fade_out != null)
+        overlay.fadeOut(options.fade_out, function () {
+            overlay.hide();
+        })
 	}
 
 	$(".cms_plugin_holder").live("mouseover", function(){
@@ -403,6 +409,8 @@ $(document).ready(function () {
 	}).mouseleave(function(){
 		$("#cms_plugin_overlay").hide();
 		hideCMStoolbarSubmenus();
+	}).dblclick(function(){
+        $("#cms_plugin_overlay").hide();
 	});
 
 	$("div.cms_toolbar_placeholder_plugins li a").click(function(e){
@@ -471,7 +479,7 @@ $(document).ready(function () {
 				ids.push(plugin_id)
 			});
 			$.post(cms_urls['cms_page_move_plugin'], { ids:ids.join("_") }, function(data){});
-			ui.item.makeoverlay({id:"cms_plugin_overlay2"});
+			ui.item.makeoverlay({id:"cms_plugin_overlay2", fade_in: 0, fade_out: 800});
 		}
 	})
 	.disableSelection()
