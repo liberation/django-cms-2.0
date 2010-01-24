@@ -1,4 +1,3 @@
-
 jQuery.fn.swapWith = function(to) {
     return this.each(function() {
         var copy_to = $(to).clone(true);
@@ -133,7 +132,7 @@ function closeCMStoolbar(){
 	$("#cms_toolbar").slideUp();
 	$("#cms_toolbar_mini").show();
 	$("#cms_toolbar_spacer").slideUp();
-	$.cookie("CMStoolbarColsed", "true", {path:'/', expires:7 });
+	$.cookie("CMStoolbarClosed", "true", {path:'/', expires:7 });
 	hideCMStoolbarSubmenus();
 	resetBodyBackgroundPos();
 }
@@ -142,7 +141,7 @@ function openCMStoolbar(){
 	$("#cms_toolbar").slideDown();
 	$("#cms_toolbar_mini").hide();
 	$("#cms_toolbar_spacer").slideDown();
-	$.cookie("CMStoolbarColsed", "false", {path:'/', expires:7 });
+	$.cookie("CMStoolbarClosed", "false", {path:'/', expires:7 });
 	initBodyBackgroundPos();
 }
 
@@ -220,7 +219,7 @@ $(document).ready(function () {
 		bodyBackgroundPosY = 0;
 	}
 
-	if ($.cookie("CMStoolbarColsed") == "true") {
+	if ($.cookie("CMStoolbarClosed") == "true") {
 		hideCMSToolbar();
 	}else{
 		showCMSToolbar();
