@@ -369,7 +369,7 @@ $(document).ready(function () {
 	}
 
 	$(".cms_plugin_holder").live("mouseover", function(){
-        if(!quick_edit_mode)
+        if(!quickedit_mode)
         {
             var splits = $(this).attr("id").split("_");
             page_id = splits[2];
@@ -415,11 +415,11 @@ $(document).ready(function () {
 	}).mouseleave(function(){
 		$("#cms_plugin_overlay").hide();
 		hideCMStoolbarSubmenus();
-		toggle_quick_edit_mode({mode: false});
+		toggle_quickedit_mode({mode: false});
 	}).dblclick(function(){
-		toggle_quick_edit_mode();
+		toggle_quickedit_mode();
         $("#cms_plugin_overlay").hide();
-        activate_quick_edit($(this).find('.editable'));
+        activate_quickedit($(this).find('.editable'));
 	});
 
 	$("div.cms_toolbar_placeholder_plugins li a").click(function(e){
