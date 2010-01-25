@@ -146,7 +146,7 @@ span.cms_toolbar_icon.cms_toolbar_state-icon.del {
 * html .cms_toolbar .cms_toolbar_submenubutton em{background-image:url(../images/cms_toolbar.gif);}
 .cms_toolbar .cms_toolbar_submenubutton:hover em{background-position:-190px -188px;}
 
-.cms_toolbar_submenu{z-index:7000012;display:none;position:absolute;width:auto;min-width:130px;top:29px;right:0px;}
+.cms_toolbar_submenu{z-index:70012;display:none;position:absolute;width:auto;min-width:130px;top:29px;right:0px;}
 .open .cms_toolbar_submenu{display:block; border:1px solid #E8E8E8;
 	-moz-border-radius:5px;
 	-webkit-border-radius:5px;

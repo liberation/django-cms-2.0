@@ -342,75 +342,84 @@ $(document).ready(function () {
 	});
 
     $.fn.makeoverlay = function(options){
-    var options = $.extend(  
-        {  
-            'id' : 'cms_plugin_overlay',  
-            'fade_in' : null,  
-            'fade_out' : null,  
-        }, options || {} );  
-    var pluginH = $(this).height();
-    var pluginHmin = 10;
-    if(pluginH<pluginHmin){pluginH=pluginHmin}
-    var overlay = $('#' + options.id);
-    overlay.css({
-        'width'		: $(this).width()+'px',
-        'height'	: pluginH+'px',
-        //'left'		: $(this).offset().left+'px',
-        //'top'		: $(this).offset().top+'px'
-    })
-    overlay.insertAfter($(this).children(':last:not(#'+options.id+')'));
-    overlay.show();
-    if(options.fade_in != null)
-        overlay.fadeIn(options.fade_in);
-    if(options.fade_out != null)
-        overlay.fadeOut(options.fade_out, function () {
-            overlay.hide();
+        var options = $.extend(  
+            {  
+                'id' : 'cms_plugin_overlay',  
+                'fade_in' : null,  
+                'fade_out' : null,  
+            }, options || {} );  
+        var pluginH = $(this).height();
+        var pluginHmin = 10;
+        if(pluginH<pluginHmin){pluginH=pluginHmin}
+        var overlay = $('#' + options.id);
+        overlay.css({
+            'width'     : $(this).width()+'px',
+            'height'    : pluginH+'px',
+            //'left'		: $(this).offset().left+'px',
+            //'top'		: $(this).offset().top+'px'
         })
+        overlay.insertAfter($(this).children(':last:not(#'+options.id+')'));
+        overlay.show();
+        if(options.fade_in != null)
+            overlay.fadeIn(options.fade_in);
+        if(options.fade_out != null)
+            overlay.fadeOut(options.fade_out, function () {
+                overlay.hide();
+            })
 	}
 
 	$(".cms_plugin_holder").live("mouseover", function(){
-		var splits = $(this).attr("id").split("_");
-		page_id = splits[2];
-		plugin_id = splits[3];
-		placeholder = $(this).attr("rel");
-		plugin_type = $(this).attr("type");
-//		alert(page_id + ' ' + plugin_id + ' ' + placeholder + ' ' + plugin_type)
+        if(!quick_edit_mode)
+        {
+            var splits = $(this).attr("id").split("_");
+            page_id = splits[2];
+            plugin_id = splits[3];
+            placeholder = $(this).attr("rel");
+            plugin_type = $(this).attr("type");
+            $(this).makeoverlay();
 
-		$(this).makeoverlay({id:"cms_plugin_overlay"});
-
-		$("div.cms_toolbar_plugintools_holder ul.cms_toolbar_submenu li:not(:last)").remove();
-		var last = $("div.cms_toolbar_plugintools_holder ul.cms_toolbar_submenu li.last")
-		var first = true;
-		for(var i = 0; i < placeholder_data.length; i++){
-			var data = placeholder_data[i];
-			var found = false;
-			if(data.type != placeholder){
-				for(j = 0; j < data.plugins.length; j++){
-					if(data.plugins[j] == plugin_type){
-						found = true;
-					}
-				}
-			}
-			if(found){
-				var html = '<li class="%(extra_class)s"><a class="cms_toolbar_move_slot" href="#" rel="%(type)s">' + cms_i18n['Move to %(name)s'] + '</a></li>'
-				if (first){
-					first = false;
-					html = html.split("%(extra_class)s").join("first")
-				}else{
-					html = html.split("%(extra_class)s").join("")
-				}
-				html = html.split("%(name)s").join(data.name)
-				html = html.split("%(type)s").join(data.type)
-				last.before(html)
-			}
-		}
+            $("div.cms_toolbar_plugintools_holder ul.cms_toolbar_submenu li:not(:last)").remove();
+            var last = $("div.cms_toolbar_plugintools_holder ul.cms_toolbar_submenu li.last")
+            var first = true;
+            for(var i = 0; i < placeholder_data.length; i++)
+            {
+                var data = placeholder_data[i];
+                var found = false;
+                if(data.type != placeholder)
+                {
+                    for(j = 0; j < data.plugins.length; j++)
+                    {
+                        if(data.plugins[j] == plugin_type)
+                            found = true;
+                    }
+                }
+            }
+            if(found)
+            {
+                var html = '<li class="%(extra_class)s"><a class="cms_toolbar_move_slot" href="#" rel="%(type)s">' + cms_i18n['Move to %(name)s'] + '</a></li>';
+                if (first)
+                {
+                    first = false;
+                    html = html.split("%(extra_class)s").join("first");
+                }
+                else
+                {
+                    html = html.split("%(extra_class)s").join("");
+                }
+                html = html.split("%(name)s").join(data.name);
+                html = html.split("%(type)s").join(data.type);
+                last.before(html);
+            }
 		$("#cms_plugin_overlay").show();
-
+        }
 	}).mouseleave(function(){
 		$("#cms_plugin_overlay").hide();
 		hideCMStoolbarSubmenus();
+		toggle_quick_edit_mode({mode: false});
 	}).dblclick(function(){
+		toggle_quick_edit_mode();
         $("#cms_plugin_overlay").hide();
+        activate_quick_edit($(this).find('.editable'));
 	});
 
 	$("div.cms_toolbar_placeholder_plugins li a").click(function(e){
@@ -470,7 +479,7 @@ $(document).ready(function () {
 		containment: 'parent',
 		placeholder: 'cms_plugin_drag_placeholder',
 		forcePlaceholderSize: true,
-		handle: '.cms_plugin_overlay_bg',
+		handle: '#cms_plugin_overlay',
 		tolerance: 'pointer',
 		update: function(event, ui) {
 			var ids = [];
