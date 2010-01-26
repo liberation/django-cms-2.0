@@ -419,7 +419,7 @@ $(document).ready(function () {
 	}).dblclick(function(){
 		toggle_quickedit_mode();
         $("#cms_plugin_overlay").hide();
-        activate_quickedit($(this).find('.editable'));
+        manage_quickedit($(this).find('.editable'));
 	});
 
 	$("div.cms_toolbar_placeholder_plugins li a").click(function(e){
