@@ -318,7 +318,7 @@ $(document).ready(function () {
 		})
       });
 
-	if (cms_page) {
+	if (page) {
 	     $("#cms_toolbar_templatebutton li a").click(function(){
 		     template = $(this).attr("href").split("#")[1];
 		     $.post(cms_urls['cms_page_change_template'], {template:template}, function(){

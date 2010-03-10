@@ -1,3 +1,4 @@
+# -*- coding:Utf-8 -*-
 """
 Edit Toolbar middleware
 """
@@ -23,6 +24,14 @@ def inster_after_tag(string, tag, insertion):
         return string[:end_tag] + insertion + string[end_tag:]
     else:
         return string
+
+def toolbar_plugin_processor(instance, placeholder, rendered_content, original_context):
+    return '<div id="cms_plugin_%s_%s" class="cms_plugin_holder" rel="%s" type="%s">%s</div>' % \
+        (instance.page_id, instance.pk, instance.placeholder, instance.plugin_type, rendered_content)
+
+def reduced_mode_processor(instance, placeholder, rendered_content, original_context):
+    """ Add div to manage a reduced mode of plugins, for easier darg n drop"""
+    return u'<div class="cms_plugin_reduced">%s – %s</div><div class="cms_plugin_extended">%s</div>' % (instance.plugin_type, instance, rendered_content)
 
 class ToolbarMiddleware(object):
     """

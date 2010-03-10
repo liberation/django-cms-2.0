@@ -9,7 +9,7 @@
 	// '$' variable, so store a reference of it in a temporary variable...
 	var _$ = window.$;
 	if (typeof jQuery == 'undefined') {
-		var jquery_url = '{{ CMS_MEDIA_URL }}js/lib/jquery.js';
+		var jquery_url = 'http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js';
 		document.write(unescape('%3Cscript src="' + jquery_url + '" type="text/javascript"%3E%3C/script%3E'));
 	}
 	//]]>
@@ -18,13 +18,12 @@
 <script type="text/javascript" src="{{ CMS_MEDIA_URL}}js/lib/jquery.cookie.js"></script>
 <script type="text/javascript" src="{{ CMS_MEDIA_URL}}js/lib/jquery.backgroundposition.js"></script>
 <script type="text/javascript" src="{{ CMS_MEDIA_URL}}js/tools.js"></script>
-<script type="text/javascript" src="{{ CMS_MEDIA_URL}}js/lib/jquery.nyroModal-1.5.2.min.js"></script>
+<script type="text/javascript" src="{{ CMS_MEDIA_URL}}js/lib/jquery.nyroModal-1.6.2.pack.js"></script>
 <script type="text/javascript" src="{{ CMS_MEDIA_URL}}js/lib/ui.core.js"></script>
 <script type="text/javascript" src="{{ CMS_MEDIA_URL}}js/lib/ui.sortable.js"></script>
-
 <script type="text/javascript">
 	//<![CDATA[
-
+ 
 		var placeholder_data = {{ placeholder_data }};
 		var cms_i18n = {
 			"Are you sure you want to delete this plugin?" : "{% trans "Are you sure you want to delete this plugin?" %}",
@@ -39,10 +38,9 @@
 		{% if page %}
 		cms_urls['cms_page_change_template'] = "{% url admin:cms_page_change_template page.pk %}";
 		{% endif %}
-		var cms_page = {% if page %}true{% else %}false{% endif %};
+		var page = {% if page %}true{% else %}false{% endif %};
 	//]]>
 </script>
-
 <script type="text/javascript" src="{{ CMS_MEDIA_URL}}js/toolbar.js"></script>
 <script type="text/javascript" charset="utf-8">
 	// Now that jQuery is done loading, put the '$' variable back to what it was...
@@ -135,10 +133,6 @@
 
 			<div class="cms_toolbar_settingsbutton cms_toolbar_button cms_toolbar_submenubutton"><span class="cms_toolbar_submenubutton_content"><strong>{% trans "Settings" %}</strong><em>arrow</em></span>
 				<ul class="cms_toolbar_submenu">
-					<!--  li class="first"><a href="#">Move to Slot1</a></li>
-					<li><a href="#">Move to Slot zwei</a></li>
-					<li><a href="#">Move to Slot drei</a></li>
-					<li><a href="#">Move to Slot 4</a></li-->
 					<li class="last"><a href="#" class="cms_toolbar_plugin_delete"><span class="cms_toolbar_icon_delete">{% trans "delete" %}</span>{% trans "Delete Plugin" %}</a></li>
 				</ul>
 			</div>
