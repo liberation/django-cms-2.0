@@ -435,8 +435,8 @@ $(document).ready(function () {
         }
         if (pluginvalue) {
             var pluginname = select.children('[selected]').text();
-            $.post(cms_urls['cms_page_add_plugin'], { page_id:page_id, placeholder:placeholder, plugin_type:pluginvalue, language:language }, function(data){
-                if ('error' != data) {
+            $.post(cms_urls['cms_page_add_plugin'], { page_id:page_id, placeholder:placeholder, plugin_type:pluginvalue, language:language }, function(data, textStatus){
+                if (textStatus == "success") {
                     edit_plugin(page_id, data);
                 }
             }, "html" );
