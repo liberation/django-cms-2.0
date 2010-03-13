@@ -7,6 +7,9 @@ from django.utils.encoding import smart_str
 from django.contrib import admin
 from cms import settings as cms_settings
 from django.forms.widgets import Media, MediaDefiningClass
+from django.template.defaultfilters import force_escape, escapejs
+from django.shortcuts import render_to_response
+from django.template.context import RequestContext
 
 def pluginmedia_property(cls):
     def _media(self):
@@ -212,3 +215,29 @@ class CMSPluginBase(admin.ModelAdmin):
     
     def __unicode__(self):
         return self.name
+
+    def response_add(self, request, obj, post_url_continue=None):
+        """
+        Overload the admin.ModelAdmin method.
+        This method is called by the ModelAdmin.add_view.
+        It make the Http response if forms is valid and object created.
+        The template scope is to close the modal and reload the page.
+        """
+        context = {
+            'CMS_MEDIA_URL': settings.CMS_MEDIA_URL, 
+            'plugin': obj, 
+            'is_popup': True, 
+            'name': unicode(obj), 
+            "type": obj.get_plugin_name(),
+            'plugin_id': obj.pk,
+            'icon': force_escape(escapejs(obj.get_instance_icon_src())),
+            'alt': force_escape(escapejs(obj.get_instance_icon_alt())),
+        }
+        return render_to_response('admin/cms/page/plugin_forms_ok.html', 
+                                  context, RequestContext(request))
+    
+    def response_change(self, request, obj, post_url_continue=None):
+        """
+        See response_add above.
+        """
+        return self.response_add(request, obj)

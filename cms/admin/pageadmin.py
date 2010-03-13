@@ -1057,7 +1057,7 @@ class PageAdmin(model_admin):
         """
         Manage adding plugins.
         Parameters are coming from URL resolver.
-        Final job is done by the add_view.
+        Final job is done by the ModelAdmin.add_view method.
         """
         #FIXME : comment needed
         if 'history' in request.path or 'recover' in request.path:
@@ -1072,24 +1072,18 @@ class PageAdmin(model_admin):
         #Define main values
         placeholder = placeholder.lower()
         page = get_object_or_404(Page, pk=page_id)
-        position = CMSPlugin.objects.filter(page=page, 
-                                            language=language, 
+        position = CMSPlugin.objects.filter(page=page, language=language, 
                                             placeholder=placeholder).count()
-        plugin = CMSPlugin(page=page, language=language, 
-                            plugin_type=plugin_type, position=position, 
-                            placeholder=placeholder)
+        plugin = CMSPlugin(page=page, language=language, plugin_type=plugin_type, 
+                           position=position, placeholder=placeholder)
         instance, plugin_admin = plugin.get_plugin_instance(self.admin_site)
         plugin_admin.cms_plugin_instance = plugin
         
         if request.method == "POST":
-            plugin.save()
-        
-            #Check if no placeholder limit is reached
-            limit_reached, message = self.check_placeholder_limits(plugin)
-            if limit_reached:
-                return HttpResponseBadRequest(message)
-
+#            request.POST['_continue'] = True
             #If there is a parent id, we override some vars
+            #We are in plugin text case
+            #TODO : check if it's really a special case
             if "parent_id" in request.POST:
                 parent_id = request.POST['parent_id']
                 parent = get_object_or_404(CMSPlugin, pk=parent_id)
@@ -1098,25 +1092,40 @@ class PageAdmin(model_admin):
                 placeholder = parent.placeholder
                 language = parent.language
                 position = None
+            
+            #Check if no placeholder limit is reached
+            limit_reached, message = self.check_placeholder_limits(plugin)
+            if limit_reached:
+                return HttpResponseBadRequest(message)
 
-        #add_view yet check the permissions
+#        calling add_view yet checks the permissions
 #        if not page.has_change_permission(request):
 #            return HttpResponseForbidden(_("You do not have permission to change this page"))
+
+            #We need to save the plugin at this step, 
+            #otherwise insert fails because tree_id = None
+            #Mptt seems to manage just CMSPlugin, not inherited classes
+            #It's ugly because, if add_view fails, CMSPlugin will be yet created
+            plugin.save()        
+
 
         #add_view do the job : save plugin if POST, just render form otherwise
         response = plugin_admin.add_view(request)
         
-        if request.method == "POUET":
+        if request.method == "POST":
             #Update reversion for page if needed
             if 'reversion' in settings.INSTALLED_APPS:
-#                page.save()
-#                save_all_plugins(request, page)
+                page.save()
+                save_all_plugins(request, page)
                 reversion.revision.user = request.user
                 plugin_name = unicode(plugin_pool.get_plugin(plugin_type).name)
-                reversion.revision.comment = _(u"%(plugin_name)s plugin added to %(placeholder)s") % {'plugin_name':plugin_name, 'placeholder':placeholder}
+                reversion.revision.comment = _(u"%(plugin_name)s plugin added \
+                                            to %(placeholder)s") \
+                                            % {'plugin_name':plugin_name, 
+                                               'placeholder':placeholder}
         
         return response
-                
+   
     add_plugin = create_on_success(add_plugin)
     
     @transaction.commit_on_success
@@ -1257,19 +1266,7 @@ class PageAdmin(model_admin):
                 reversion.revision.comment = _(u"%(plugin_name)s plugin edited at position %(position)s in %(placeholder)s") % {'plugin_name':plugin_name, 'position':cms_plugin.position, 'placeholder': cms_plugin.placeholder}
                 
             # read the saved object from plugin_admin - ugly but works
-            saved_object = plugin_admin.saved_object
-            
-            context = {
-                'CMS_MEDIA_URL': settings.CMS_MEDIA_URL, 
-                'plugin': saved_object, 
-                'is_popup': True, 
-                'name': unicode(saved_object), 
-                "type": saved_object.get_plugin_name(),
-                'plugin_id': plugin_id,
-                'icon': force_escape(escapejs(saved_object.get_instance_icon_src())),
-                'alt': force_escape(escapejs(saved_object.get_instance_icon_alt())),
-            }
-            return render_to_response('admin/cms/page/plugin_forms_ok.html', context, RequestContext(request))
+            return plugin_admin.response_change(request, plugin_admin.saved_object)
             
         return response
         
