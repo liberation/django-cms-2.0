@@ -435,6 +435,34 @@ $(document).ready(function () {
         }
         if (pluginvalue) {
             var pluginname = select.children('[selected]').text();
+        	$.nyroModalManual({
+                debug: false,
+        		zIndexStart: 80000,
+        	    type: 'iframe',
+        		modal: false,
+        		forceType: 'iframe',
+        		url: cms_urls['cms_page_changelist']+page_id + '/add-plugin/'+ placeholder + '/' + pluginvalue + '/' + language + '/?popup=true&no_preview',
+        		padding: 0,
+        		minWidth: 800,
+        		minHeight: 300,
+        		height: 400,
+        		windowResize: false,
+        		titleFromIframe: false,
+        		title: 'toto fait du velo',
+        		closeButton: '<a class="cms_toolbar_button cms_toolbar_iconbutton nyroModalClose" href="#" id="closeBut"><span><strong>Close</strong></span></a>',
+        		contentLoading: 'poeut pouet pouet pouetpouetpeout',
+        		css: {
+        			content: {
+        				overflow: 'hidden'
+        			}
+        		},
+        		showBackground: function (elts, settings, callback) {
+                    elts.bg.css({opacity:0}).fadeTo(100, 0.5, callback);
+        		},
+        		hideBackground: function (elts, settings, callback) {
+                    elts.bg.fadeOut(100,callback)
+        		}
+        	});
             $.post(cms_urls['cms_page_add_plugin'], { page_id:page_id, placeholder:placeholder, plugin_type:pluginvalue, language:language }, function(data, textStatus){
                 if (textStatus == "success") {
                     edit_plugin(page_id, data);

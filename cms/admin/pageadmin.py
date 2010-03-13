@@ -170,7 +170,7 @@ class PageAdmin(model_admin):
         
         url_patterns = patterns('',
             pat(r'copy-plugins/$', self.copy_plugins),
-            pat(r'add-plugin/$', self.add_plugin),
+            pat(r'^(?P<page_id>\d+)/add-plugin/(?P<placeholder>\w+)/(?P<plugin_type>\w+)/(?P<language>\w+)/$', self.add_plugin),
             pat(r'edit-plugin/([0-9]+)/$', self.edit_plugin),
             pat(r'remove-plugin/$', self.remove_plugin),
             pat(r'move-plugin/$', self.move_plugin),
@@ -828,7 +828,7 @@ class PageAdmin(model_admin):
     
     
     def delete_view(self, request, object_id, *args, **kwargs):
-        """If page is under modaretion, just mark this page for deletion = add
+        """If page is under moderation, just mark this page for deletion = add
         delete action to page states.
         """
         page = get_object_or_404(Page, id=object_id)
@@ -995,60 +995,113 @@ class PageAdmin(model_admin):
             page.save(force_state=Page.MODERATOR_NEED_APPROVEMENT)
             return render_admin_menu_item(request, page)
         return HttpResponseForbidden(_("You do not have permission to change this page's in_navigation status"))
+
+    def check_placeholder_limits(self, plugin):
+        """
+        Is there a limit of plugin number for this placeholder 
+        and is this limit reached ?
+        Return a tuple :
+        - limit_reached = True / False
+        - message, if necessary
+        """
+        limit_reached = False
+        message = ""
+        page = plugin.page
+        placeholder = plugin.placeholder
+        language = plugin.language
+        plugin_type = plugin.plugin_type
+        
+        #Define the limits
+        limits = settings.CMS_PLACEHOLDER_CONF.get("%s %s" 
+                    % (page.get_template(), placeholder), {}).get('limits', None)
+        if not limits:
+            limits = settings.CMS_PLACEHOLDER_CONF.get(placeholder, 
+                                                        {}).get('limits', None)
+        if limits:
+            #Global plugin number limit
+            global_limit = limits.get("global")
+            type_limit = limits.get(plugin_type)
+            if global_limit and position >= global_limit:
+                limit_reached = True
+                message = "This placeholder already has the \
+                                                maximum number of plugins"
+            #Limit for one plugin type
+            elif type_limit:
+                type_count = CMSPlugin.objects.filter(page=page, 
+                                                        language=language, 
+                                                        placeholder=placeholder, 
+                                                        plugin_type=plugin_type
+                                                        ).count()
+                if type_count >= type_limit:
+                    limit_reached = True
+                    message = "This placeholder already has the maximum number \
+                               allowed %s plugins." % (plugin_type)
+        return limit_reached, message
     
-    def add_plugin(self, request):
+    def add_plugin(self, request, page_id, placeholder, plugin_type, language):
+        """
+        Manage adding plugins.
+        Parameters are coming from URL resolver.
+        Final job is done by the add_view.
+        """
+        #FIXME : comment needed
         if 'history' in request.path or 'recover' in request.path:
-            return HttpResponse(str("error"))
+            #404 Response for Ajax call
+            return HttpResponseBadRequest("Request not permitted (history or \
+                                           recover parameter)")
+
+        # Sanity check to make sure we're not getting bogus values from JavaScript:
+        if not language or not language in [ l[0] for l in settings.LANGUAGES ]:
+            return HttpResponseBadRequest(_("Language must be set to a supported language!"))
+
+        #Define main values
+        placeholder = placeholder.lower()
+        page = get_object_or_404(Page, pk=page_id)
+        position = CMSPlugin.objects.filter(page=page, 
+                                            language=language, 
+                                            placeholder=placeholder).count()
+        plugin = CMSPlugin(page=page, language=language, 
+                            plugin_type=plugin_type, position=position, 
+                            placeholder=placeholder)
+        instance, plugin_admin = plugin.get_plugin_instance(self.admin_site)
+        plugin_admin.cms_plugin_instance = plugin
+        
         if request.method == "POST":
-            plugin_type = request.POST['plugin_type']
-            page_id = request.POST.get('page_id', None)
-            parent = None
-            if page_id:
-                page = get_object_or_404(Page, pk=page_id)
-                placeholder = request.POST['placeholder'].lower()
-                language = request.POST['language']
-                position = CMSPlugin.objects.filter(page=page, language=language, placeholder=placeholder).count()
-                limits = settings.CMS_PLACEHOLDER_CONF.get("%s %s" % (page.get_template(), placeholder), {}).get('limits', None)
-                if not limits:
-                    limits = settings.CMS_PLACEHOLDER_CONF.get(placeholder, {}).get('limits', None)
-                if limits:
-                    global_limit = limits.get("global")
-                    type_limit = limits.get(plugin_type)
-                    if global_limit and position >= global_limit:
-                        return HttpResponseBadRequest("This placeholder already has the maximum number of plugins")
-                    elif type_limit:
-                        type_count = CMSPlugin.objects.filter(page=page, language=language, placeholder=placeholder, plugin_type=plugin_type).count()
-                        if type_count >= type_limit:
-                            return HttpResponseBadRequest("This placeholder already has the maximum number allowed %s plugins.'%s'" % plugin_type)
-            else:
+            plugin.save()
+        
+            #Check if no placeholder limit is reached
+            limit_reached, message = self.check_placeholder_limits(plugin)
+            if limit_reached:
+                return HttpResponseBadRequest(message)
+
+            #If there is a parent id, we override some vars
+            if "parent_id" in request.POST:
                 parent_id = request.POST['parent_id']
                 parent = get_object_or_404(CMSPlugin, pk=parent_id)
+                plugin.parent = parent
                 page = parent.page
                 placeholder = parent.placeholder
                 language = parent.language
                 position = None
-    
-            if not page.has_change_permission(request):
-                return HttpResponseForbidden(_("You do not have permission to change this page"))
-    
-            # Sanity check to make sure we're not getting bogus values from JavaScript:
-            if not language or not language in [ l[0] for l in settings.LANGUAGES ]:
-                return HttpResponseBadRequest(_("Language must be set to a supported language!"))
-            
-            plugin = CMSPlugin(page=page, language=language, plugin_type=plugin_type, position=position, placeholder=placeholder) 
-    
-            if parent:
-                plugin.parent = parent
-            plugin.save()
+
+        #add_view yet check the permissions
+#        if not page.has_change_permission(request):
+#            return HttpResponseForbidden(_("You do not have permission to change this page"))
+
+        #add_view do the job : save plugin if POST, just render form otherwise
+        response = plugin_admin.add_view(request)
+        
+        if request.method == "POUET":
+            #Update reversion for page if needed
             if 'reversion' in settings.INSTALLED_APPS:
-                page.save()
-                save_all_plugins(request, page)
+#                page.save()
+#                save_all_plugins(request, page)
                 reversion.revision.user = request.user
                 plugin_name = unicode(plugin_pool.get_plugin(plugin_type).name)
                 reversion.revision.comment = _(u"%(plugin_name)s plugin added to %(placeholder)s") % {'plugin_name':plugin_name, 'placeholder':placeholder}
-            return HttpResponse(str(plugin.pk))
-        raise Http404
-
+        
+        return response
+                
     add_plugin = create_on_success(add_plugin)
     
     @transaction.commit_on_success
@@ -1264,12 +1317,12 @@ class PageAdmin(model_admin):
                 plugin.delete()
             else:
                 plugin.delete_with_public()
-                
+
             plugin_name = unicode(plugin_pool.get_plugin(plugin.plugin_type).name)
             comment = _(u"%(plugin_name)s plugin at position %(position)s in %(placeholder)s was deleted.") % {'plugin_name':plugin_name, 'position':plugin.position, 'placeholder':plugin.placeholder}
             if 'reversion' in settings.INSTALLED_APPS:
-                save_all_plugins(request, page)
-                page.save()
+#                save_all_plugins(request, page)
+#                page.save()
                 reversion.revision.user = request.user
                 reversion.revision.comment = comment
             return HttpResponse("%s,%s" % (plugin_id, comment))
