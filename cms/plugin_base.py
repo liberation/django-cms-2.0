@@ -166,23 +166,35 @@ class CMSPluginBase(admin.ModelAdmin):
         
         return super(CMSPluginBase, self).save_model(request, obj, form, change)
     
-    def response_change(self, request, obj):
-        """
-        Just set a flag, so we know something was changed, and can make
-        new version if reversion installed.
-        New version will be created in admin.views.edit_plugin
-        """
-        self.object_successfully_changed = True
-        return super(CMSPluginBase, self).response_change(request, obj)
-    
     def response_add(self, request, obj):
         """
-        Just set a flag, so we know something was changed, and can make
-        new version if reversion installed.
-        New version will be created in admin.views.edit_plugin
+        Overload the admin.ModelAdmin method.
+        This method is called by the ModelAdmin.add_view.
+        It make the Http response if forms is valid and object created.
+        The template goal is to close the modal and reload the page.
         """
+        #Just set a flag, so we know something was changed, and can make
+        #new version if reversion installed.
+        #New version will be created in admin.views.edit_plugin
         self.object_successfully_changed = True
-        return super(CMSPluginBase, self).response_add(request, obj)
+        context = {
+            'CMS_MEDIA_URL': settings.CMS_MEDIA_URL, 
+            'plugin': obj, 
+            'is_popup': True, 
+            'name': unicode(obj), 
+            "type": obj.get_plugin_name(),
+            'plugin_id': obj.pk,
+            'icon': force_escape(escapejs(obj.get_instance_icon_src())),
+            'alt': force_escape(escapejs(obj.get_instance_icon_alt())),
+        }
+        return render_to_response('admin/cms/page/plugin_forms_ok.html', 
+                                  context, RequestContext(request))
+
+    def response_change(self, request, obj):
+        """
+        See response_add above.
+        """
+        return self.response_add(request, obj)    
 
     def log_addition(self, request, object):
         pass
@@ -235,9 +247,3 @@ class CMSPluginBase(admin.ModelAdmin):
         }
         return render_to_response('admin/cms/page/plugin_forms_ok.html', 
                                   context, RequestContext(request))
-    
-    def response_change(self, request, obj, post_url_continue=None):
-        """
-        See response_add above.
-        """
-        return self.response_add(request, obj)

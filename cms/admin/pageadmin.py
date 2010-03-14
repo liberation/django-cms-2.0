@@ -1080,7 +1080,6 @@ class PageAdmin(model_admin):
         plugin_admin.cms_plugin_instance = plugin
         
         if request.method == "POST":
-#            request.POST['_continue'] = True
             #If there is a parent id, we override some vars
             #We are in plugin text case
             #TODO : check if it's really a special case
