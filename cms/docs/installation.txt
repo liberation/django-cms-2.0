@@ -3,14 +3,14 @@ Installation
 
 This document assumes that you are familiar with python and django.
 
-A more beginner friendly tutorial should be written shortly.
+A more beginner friendly tutorial can be found `here <../tutorial/>`_
 
 Make sure that `cms`, `mptt` and `publisher` folders are on your pythonpath.
 They all should come with the distribution.
 
 python 2.4 - 2.6 should be supported
 
-django 1.1 is required at this moment.
+django 1.2 is required at this moment.
 
 Apps
 ----
@@ -33,6 +33,7 @@ Add the following to your project's ``INSTALLED_APPS`` setting if not already pr
 		'cms.plugins.googlemap',
 		'mptt',
 		'publisher'
+		'menus',
 		...
 	)
 
@@ -117,7 +118,7 @@ For some template examples see the templates used in the example project.
 
 Here's a quick example of what a template might look like::
 
-	{% load cms_tags %}
+	{% load cms_tags menu_tags %}
 
 	<div id="menu">{% show_menu 0 100 100 100 %}</div>
 	<div id="breadcrumb">{% show_breadcrumb %}</div>

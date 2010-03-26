@@ -48,18 +48,8 @@ CMS_REDIRECTS = False
 # admin
 CMS_SEO_FIELDS = False 
 
-# a tuble with a python path to a function that returns a list of navigation nodes
-CMS_NAVIGATION_EXTENDERS = ()
-
-# a tuple with a python path to a function that receives all navigation nodes and can add or remove them
-CMS_NAVIGATION_MODIFIERS = ()
-
-# a tuple of hookable applications, e.g.:
-# CMS_APPLICATIONS_URLS = (
-#    ('sampleapp.urls', 'Sample application'),
-# )
-CMS_APPLICATIONS_URLS = () 
-    
+# a tuple of python path to AppHook Classes. Overwrites the auto-discovered apphooks.
+CMS_APPHOOKS = ()  
 
 #Should the tree of the pages be also be displayed in the urls? or should a flat slug structure be used?
 CMS_FLAT_URLS = False

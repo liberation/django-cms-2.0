@@ -39,8 +39,10 @@ from django.template.context import RequestContext
 from django.template.defaultfilters import title, escape, force_escape, escapejs
 from django.utils.encoding import force_unicode
 from django.utils.text import capfirst
-from django.utils.translation import ugettext as _
+from django.utils.translation import ugettext_lazy as _
+from menus.menu_pool import menu_pool
 import os
+from cms.apphook_pool import apphook_pool
 
 
 
@@ -85,12 +87,8 @@ class PageAdmin(model_admin):
         general_fields.append('publication_date')
     elif settings.CMS_SHOW_END_DATE:
         general_fields.append( 'publication_end_date')
-    if settings.CMS_NAVIGATION_EXTENDERS:
-        advanced_fields.append('navigation_extenders')
     if settings.CMS_MODERATOR:
         additional_hidden_fields.extend(('moderator_state', 'moderator_message'))
-    if settings.CMS_APPLICATIONS_URLS:
-        advanced_fields.append('application_urls')
     if settings.CMS_SEO_FIELDS:
         seo_fields = ('page_title', 'meta_description', 'meta_keywords')
     if settings.CMS_MENU_TITLE_OVERWRITE:
@@ -99,7 +97,10 @@ class PageAdmin(model_admin):
         advanced_fields.remove("overwrite_url")
     if not settings.CMS_REDIRECTS:
         advanced_fields.remove('redirect')
-        
+    if menu_pool.get_menus_by_attribute("cms_enabled", True):
+        advanced_fields.append("navigation_extenders")
+    if apphook_pool.get_apphooks():
+        advanced_fields.append("application_urls")    
     
     # take care with changing fieldsets, get_fieldsets() method removes some
     # fields depending on permissions, but its very static!!
@@ -309,7 +310,7 @@ class PageAdmin(model_admin):
                     name = placeholder_name
                 given_fieldsets += [(title(name), {'fields':[placeholder_name], 'classes':['plugin-holder']})]
             advanced = given_fieldsets.pop(3)
-            if obj.has_advanced_settings_permission(request):
+            if obj.has_advanced_settings_permission(request): 
                 given_fieldsets.append(advanced)
             if settings.CMS_SEO_FIELDS:
                 seo = given_fieldsets.pop(3)
@@ -531,11 +532,14 @@ class PageAdmin(model_admin):
         if not context:
             context = {}
         language = get_language_from_request(request, obj)
-        site_id = obj.site_id
+        site_id = None
+        if obj:
+            site_id = obj.site_id
         languages = []
-        if site_id in settings.CMS_SITE_LANGUAGES:
+        if site_id and site_id in settings.CMS_SITE_LANGUAGES:
             for lang in settings.CMS_SITE_LANGUAGES[site_id]:
-                languages.append((lang, dict(settings.CMS_LANGUAGES)[lang]))
+                lang_label = dict(settings.CMS_LANGUAGES).get(lang, dict(settings.LANGUAGES).get(lang, lang))
+                languages.append((lang, lang_label))
         else:
             languages = settings.CMS_LANGUAGES
         context.update({
@@ -834,6 +838,8 @@ class PageAdmin(model_admin):
 
         approve_page(request, page)
         
+        # Django SQLite bug. Does not convert to string the lazy instances
+        from django.utils.translation import ugettext as _
         self.message_user(request, _('Page was successfully approved.'))
         
         if 'node' in request.REQUEST:
