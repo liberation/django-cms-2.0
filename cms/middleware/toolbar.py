@@ -115,8 +115,7 @@ class ToolbarMiddleware(object):
             'edit':edit,
             'CMS_MEDIA_URL': cms_settings.CMS_MEDIA_URL,
         })
-#Patch for 1.1 compatibility, not to be commited        
-#        from django.core.context_processors import csrf
-#        context.update(csrf(request))
+        from django.core.context_processors import csrf
+        context.update(csrf(request))
         return render_to_string('cms/toolbar/toolbar.html', context )
 
