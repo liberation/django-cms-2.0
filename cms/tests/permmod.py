@@ -1,8 +1,8 @@
 from django.contrib.auth.models import User
 from django.conf import settings
 from cms.tests.base import CMSTestCase, URL_CMS_PAGE_ADD, URL_CMS_PAGE,\
-    URL_CMS_PAGE_CHANGE
-from cms.models import Title, Page
+    URL_CMS_PAGE_CHANGE, URL_CMS_PLUGIN_REMOVE
+from cms.models import Title, Page, CMSPlugin
 from cms.models.permissionmodels import PagePermission
 from cms.models.moderatormodels import ACCESS_PAGE_AND_DESCENDANTS,\
     ACCESS_CHOICES, ACCESS_DESCENDANTS, ACCESS_CHILDREN
@@ -119,21 +119,26 @@ class PermissionModeratorTestCase(CMSTestCase):
         page_permission.save()
         return page_permission
     
-    def add_plugin(self, user):
-        slave_page = self.slave_page
+    def add_plugin(self, user, page=None):
+        if page:
+            slave_page = page
+        else:
+            slave_page = self.slave_page
         
         post_data = {
             'language': 'en',
-            'page_id': slave_page.pk,
-            'placeholder': 'Right-Column',
+            'placeholder': slave_page.placeholders.get(slot__iexact='Right-Column').pk,
             'plugin_type': 'TextPlugin'
         }
         self.login_user(user)
         url = URL_CMS_PAGE + "%d/add-plugin/" % slave_page.pk
         response = self.client.post(url, post_data)
-        self.assertEqual(slave_page.cmsplugin_set.count(), 1)
-        plugin_id = slave_page.cmsplugin_set.all()[0].id
+        
+        cmsplugin_set = CMSPlugin.objects.filter(placeholder__in=slave_page.placeholders.all())
+        self.assertEqual(cmsplugin_set.count(), 1)
+        plugin_id = cmsplugin_set[0].id
         self.assertEqual(response.content, str(plugin_id))
+        return plugin_id
     
     def publish_page(self, page, approve=False, user=None, published_check=True):
         if user:
@@ -328,8 +333,9 @@ class PermissionModeratorTestCase(CMSTestCase):
         response = self.client.post(url, page_data)
         self.assertRedirects(response, URL_CMS_PAGE)
         # public model shouldn't be available yet, because of the moderation
-        self.assertObjectExist(Title.objects, slug=page_data['slug'])
-        self.assertObjectDoesNotExist(Title.objects.public(), slug=page_data['slug'])
+        # removed test cases since Title object does not inherit from Publisher anymore
+        #self.assertObjectExist(Title.objects, slug=page_data['slug'])
+        #self.assertObjectDoesNotExist(Title.objects.public(), slug=page_data['slug'])
         
         # page created?
         page = self.assertObjectExist(Page.objects.drafts(), title_set__slug=page_data['slug'])
@@ -536,7 +542,7 @@ class PermissionModeratorTestCase(CMSTestCase):
     def test_16_patricks_move(self):
         """Special name, special case..
 
-        1. build following tree (msater node is approved and published)
+        1. build following tree (master node is approved and published)
         
                  slave-home
                 /    |    \
@@ -580,10 +586,9 @@ class PermissionModeratorTestCase(CMSTestCase):
         pg = self.create_page(pf, position="right", title="pg")
         ph = self.create_page(pf, position="right", title="ph")
         
-        
         self.assertEqual(not pg.publisher_public, True)
         
-        # login as master for approvement
+        # login as master for approval
         self.login_user(self.user_master)
         
         # first approve slave-home
@@ -608,8 +613,8 @@ class PermissionModeratorTestCase(CMSTestCase):
         self.assertEqual(pg.publisher_public != None, True)
         
         # check urls
-        self.assertEqual(pg.publisher_public.get_absolute_url(), u'/master/slave-home/pb/pe/pg/')
-        self.assertEqual(ph.publisher_public.get_absolute_url(), u'/master/slave-home/pb/pe/ph/')
+        self.assertEqual(pg.publisher_public.get_absolute_url(), u'%smaster/slave-home/pb/pe/pg/' % self.get_pages_root())
+        self.assertEqual(ph.publisher_public.get_absolute_url(), u'%smaster/slave-home/pb/pe/ph/' % self.get_pages_root())
         
         # perform movings under slave...
         self.login_user(self.user_slave)
@@ -626,12 +631,11 @@ class PermissionModeratorTestCase(CMSTestCase):
         pg = self.reload_page(pg)
         ph = self.reload_page(ph)
         
+        # check urls - they should stay them same, there wasn't approved yet
+        self.assertEqual(pg.publisher_public.get_absolute_url(), u'%smaster/slave-home/pb/pe/pg/' % self.get_pages_root())
+        self.assertEqual(ph.publisher_public.get_absolute_url(), u'%smaster/slave-home/pb/pe/ph/' % self.get_pages_root())
         
-        # check urls - they should stay them same, there wasn't approvement yet
-        self.assertEqual(pg.publisher_public.get_absolute_url(), u'/master/slave-home/pb/pe/pg/')
-        self.assertEqual(ph.publisher_public.get_absolute_url(), u'/master/slave-home/pb/pe/ph/')
-        
-        # pg & pe should require approvement
+        # pg & pe should require approval
         self.assertEqual(pg.requires_approvement(), True)
         self.assertEqual(pe.requires_approvement(), True)
         self.assertEqual(ph.requires_approvement(), False)
@@ -649,5 +653,63 @@ class PermissionModeratorTestCase(CMSTestCase):
         self.assertEqual(ph.publisher_public.parent.pk, pe.publisher_public_id)
         
         # check if urls are correct after move
-        self.assertEqual(pg.publisher_public.get_absolute_url(), u'/master/slave-home/pc/pg/')
-        self.assertEqual(ph.publisher_public.get_absolute_url(), u'/master/slave-home/pc/pg/pe/ph/')        
+        self.assertEqual(pg.publisher_public.get_absolute_url(), u'%smaster/slave-home/pc/pg/' % self.get_pages_root())
+        self.assertEqual(ph.publisher_public.get_absolute_url(), u'%smaster/slave-home/pc/pg/pe/ph/' % self.get_pages_root())     
+        
+    def test_17_plugins_get_published(self):
+        self.login_user(self.user_super)
+        # create page under root
+        page = self.create_page()
+        self.add_plugin(self.user_super, page)
+        # public must not exist
+        self.assertEqual(CMSPlugin.objects.all().count(), 1)
+        self.publish_page(page, True, self.user_super, True)
+        self.assertEqual(CMSPlugin.objects.all().count(), 2)
+
+    def test_18_remove_plugin_page_under_moderation(self):
+        # login as slave and create page
+        self.login_user(self.user_slave)
+        page = self.create_page(self.slave_page)
+        
+        # add plugin
+        plugin_id = self.add_plugin(self.user_slave, page)
+        
+        # publish page
+        page = self.publish_page(page, published_check=False)
+        
+        # only the draft plugin should exist
+        self.assertEqual(CMSPlugin.objects.all().count(), 1)
+        
+        # page should require approval
+        self.assertEqual(page.moderator_state, Page.MODERATOR_NEED_APPROVEMENT)
+        
+        # master approves and publishes the page
+        self.login_user(self.user_master)
+        # first approve slave-home
+        self.publish_page(self.slave_page, approve=True)
+        page = self.publish_page(page, approve=True)
+        
+        # draft and public plugins should now exist
+        self.assertEqual(CMSPlugin.objects.all().count(), 2)
+        
+        # login as slave and delete the plugin - should require moderation
+        self.login_user(self.user_slave)
+        plugin_data = {
+            'plugin_id': plugin_id
+        }
+        remove_url = URL_CMS_PLUGIN_REMOVE
+        response = self.client.post(remove_url, plugin_data)
+        self.assertEquals(response.status_code, 200)
+
+        # there should only be a public plugin - since the draft has been deleted
+        self.assertEquals(CMSPlugin.objects.all().count(), 1)
+
+        # reload the page as it's moderator value should have been set in pageadmin.remove_plugin
+        page = self.reload_page(page)
+
+        # login as super user and approve/publish the page
+        self.login_user(self.user_master)
+        page = self.publish_page(page, approve=True)
+
+        # there should now be 0 plugins
+        self.assertEquals(CMSPlugin.objects.all().count(), 0)

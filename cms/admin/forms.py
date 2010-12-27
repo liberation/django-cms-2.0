@@ -1,27 +1,26 @@
-from django.conf import settings
-from django import forms
-from django.template.defaultfilters import slugify
-from django.utils.translation import ugettext_lazy as _, get_language
-from django.forms.util import ErrorList
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth.models import User, Permission, Group
-from django.contrib.contenttypes.models import ContentType
-from django.db.models.fields import BooleanField
-
-
-from cms.models import Page, Title, PagePermission, PageUser, ACCESS_PAGE,\
+from cms.apphook_pool import apphook_pool
+from cms.forms.widgets import UserSelectAdminWidget
+from cms.models import Page, PagePermission, PageUser, ACCESS_PAGE, \
     PageUserGroup
-from cms.utils.urlutils import any_path_re
-from cms.utils.permissions import get_current_user, get_subordinate_users,\
-    get_subordinate_groups, mail_page_user_change
-from cms.admin.widgets import UserSelectAdminWidget
 from cms.utils.page import is_valid_page_slug
-from django.forms.widgets import HiddenInput
+from cms.utils.permissions import get_current_user, get_subordinate_users, \
+    get_subordinate_groups, mail_page_user_change
+from cms.utils.urlutils import any_path_re
+from django import forms
+from django.conf import settings
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.sites.models import Site
 from django.core.exceptions import ValidationError
+from django.db.models.fields import BooleanField
+from django.forms.util import ErrorList
+from django.forms.widgets import HiddenInput
+from django.template.defaultfilters import slugify
+from django.utils.translation import ugettext_lazy as _, get_language
 from menus.menu_pool import menu_pool
-from django.utils.functional import lazy
-from cms.apphook_pool import apphook_pool
+
+
 
 
 class PageAddForm(forms.ModelForm):
@@ -34,7 +33,7 @@ class PageAddForm(forms.ModelForm):
     
     class Meta:
         model = Page
-        exclude = ["created_by", "changed_by"]
+        exclude = ["created_by", "changed_by", "placeholders"]
     
     def __init__(self, *args, **kwargs):
         super(PageAddForm, self).__init__(*args, **kwargs)
@@ -44,9 +43,10 @@ class PageAddForm(forms.ModelForm):
             self.fields['site'].initial = Site.objects.get_current().pk
         site_id = self.fields['site'].initial
         languages = []
+        language_mappings = dict(settings.LANGUAGES)
         if site_id in settings.CMS_SITE_LANGUAGES:
             for lang in settings.CMS_SITE_LANGUAGES[site_id]:
-                languages.append((lang, dict(settings.CMS_LANGUAGES)[lang]))
+                languages.append((lang, language_mappings.get(lang, lang)))
         else:
             languages = settings.CMS_LANGUAGES
         self.fields['language'].choices = languages
@@ -126,18 +126,20 @@ class PageForm(PageAddForm):
     
     def clean(self):
         cleaned_data = super(PageForm, self).clean()
-        id = cleaned_data['reverse_id']
-        site_id = cleaned_data['site']
-        if id:
-            if Page.objects.filter(reverse_id=id, site=site_id, publisher_is_draft=True).exclude(pk=self.instance.pk).count():
-                raise forms.ValidationError(_('A page with this reverse URL id exists already.'))
+        if 'reverse_id' in self.fields:
+            id = cleaned_data['reverse_id']
+            site_id = cleaned_data['site']
+            if id:
+                if Page.objects.filter(reverse_id=id, site=site_id, publisher_is_draft=True).exclude(pk=self.instance.pk).count():
+                    raise forms.ValidationError(_('A page with this reverse URL id exists already.'))
         return cleaned_data
 
     def clean_overwrite_url(self):
-        url = self.cleaned_data['overwrite_url']
-        if url:
-            if not any_path_re.match(url):
-                raise forms.ValidationError(_('Invalid URL, use /my/url format.'))
+        if 'overwrite_url' in self.fields:
+            url = self.cleaned_data['overwrite_url']
+            if url:
+                if not any_path_re.match(url):
+                    raise forms.ValidationError(_('Invalid URL, use /my/url format.'))
         return url
     
 

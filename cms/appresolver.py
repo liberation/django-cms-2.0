@@ -18,6 +18,8 @@ def applications_page_check(request, current_page=None, path=None):
     if current_page:
         return current_page
     if path is None:
+        # We should get in this branch only if an apphook is active on /
+        # This removes the non-CMS part of the URL.
         path = request.path.replace(reverse('pages-root'), '', 1)
     # check if application resolver can resolve this
     for resolver in APP_RESOLVERS:
@@ -29,6 +31,7 @@ def applications_page_check(request, current_page=None, path=None):
             # from cms, but keep current page. Otherwise return page to which was application assigned.
             return page
         except Resolver404:
+            # Raised if the page is not managed by an apphook
             pass
     return None
 
@@ -57,7 +60,8 @@ class AppRegexURLResolver(RegexURLResolver):
                     if sub_match:
                         return pattern.page_id
                     tried.append(pattern.regex.pattern)
-            raise Resolver404, {'tried': tried, 'path': new_path}
+            raise Resolver404, {'tried': tried, 'path': new_path}        
+
 
 def recurse_patterns(path, pattern_list, page_id):
     """
@@ -73,10 +77,9 @@ def recurse_patterns(path, pattern_list, page_id):
             # this is an 'include', recurse!
             resolver = RegexURLResolver(regex, 'cms_appresolver',
                 pattern.default_kwargs, pattern.app_name, pattern.namespace)
-            # This is a bit hacky, usually a RegexURLResolver uses the urlconf_name
-            # to resolve URLs, but we just override the url_patterns...
             resolver.page_id = page_id
-            resolver.url_patterns = recurse_patterns(regex, pattern.url_patterns, page_id)
+            # see lines 243 and 236 of urlresolvers.py to understand the next line
+            resolver._urlconf_module = recurse_patterns(regex, pattern.url_patterns, page_id)
         else:
             # Re-do the RegexURLPattern with the new regular expression
             resolver = RegexURLPattern(regex, pattern.callback,
@@ -85,6 +88,15 @@ def recurse_patterns(path, pattern_list, page_id):
         newpatterns.append(resolver)
     return newpatterns
 
+def _flatten_patterns(patterns):
+    flat = []
+    for pattern in patterns:
+        if isinstance(pattern, RegexURLResolver):
+            flat += _flatten_patterns(pattern.url_patterns)
+        else:
+            flat.append(pattern)
+    return flat
+
 def get_patterns_for_title(path, title):
     """
     Resolve the urlconf module for a path+title combination
@@ -92,16 +104,21 @@ def get_patterns_for_title(path, title):
     """
     app = apphook_pool.get_apphook(title.application_urls)
     patterns = []
-    for urlconf_name in app.urls:
-        mod = import_module(urlconf_name)
-        if not hasattr(mod, 'urlpatterns'):
-            raise ImproperlyConfigured("URLConf `%s` has no urlpatterns attribute"
-                % urlconf_name)
-        pattern_list = getattr(mod, 'urlpatterns')
+    for urlconf in app.urls:
+        pattern_list = None
+        if isinstance(urlconf, (str)):
+            mod = import_module(urlconf)
+            if not hasattr(mod, 'urlpatterns'):
+                raise ImproperlyConfigured("URLConf `%s` has no urlpatterns attribute"
+                    % urlconf)
+            pattern_list = getattr(mod, 'urlpatterns')
+        else:
+            pattern_list = urlconf
         if not path.endswith('/'):
             path += '/'
         page_id = title.page.id
         patterns += recurse_patterns(path, pattern_list, page_id)
+    patterns = _flatten_patterns(patterns)
     return patterns
 
 

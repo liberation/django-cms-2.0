@@ -28,4 +28,10 @@
 - example templates look a lot better now.
 - languages are not a dropdown anymore but fancy tabs
 - placeholderend templatetag added: {% placeholder "content" %}There is no content here{% endplaceholder %}
+- plugins can now be used in other apps :) see cms/docs/placeholders.txt
+- plugins can now be grouped
 - a lot of bugfixes
+- the cms now depends on the cms.middleware.media.PlaceholderMediaMiddleware middleware
+- templatetags refactored: see cms/docs/templatetags.txt for new signatures.
+- placeholder has new option: or and a endpalceholder templatetag
+

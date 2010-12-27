@@ -5,7 +5,6 @@ from cms.utils.moderator import get_page_queryset, get_title_queryset
 from django.conf import settings
 from django.contrib.sites.models import Site
 from cms.utils.i18n import get_fallback_languages
-from cms.exceptions import NoHomeFound
 from cms.apphook_pool import apphook_pool
 from cms.models.titlemodels import Title
 
@@ -13,9 +12,18 @@ def page_to_node(page, home, cut):
     parent_id = page.parent_id
     if home and page.parent_id == home.pk and cut:
         parent_id = None
+    # possible fix for a possible problem
+    #if parent_id and not page.parent.get_calculated_status():
+    #    parent_id = None # ????
     attr = {'soft_root':page.soft_root,
             'auth_required':page.login_required,
             'reverse_id':page.reverse_id,}
+    if page.limit_visibility_in_menu == None:
+        attr['visible_for_authenticated'] = True
+        attr['visible_for_anonymous'] = True
+    else:
+        attr['visible_for_authenticated'] = page.limit_visibility_in_menu == 1
+        attr['visible_for_anonymous'] = page.limit_visibility_in_menu == 2
     if page.pk == home.pk:
         attr['is_home'] = True
     extenders = []
@@ -29,9 +37,10 @@ def page_to_node(page, home, cut):
         app = apphook_pool.get_apphook(app_name)
         for menu in app.menus:
             extenders.append(menu.__name__)
+    attr['redirect_url'] = page.get_redirect()  # save redirect URL is any
     if extenders:
         attr['navigation_extenders'] = extenders
-    n = NavigationNode(
+    ret_node = NavigationNode(
         page.get_menu_title(), 
         page.get_absolute_url(), 
         page.pk, 
@@ -39,7 +48,7 @@ def page_to_node(page, home, cut):
         attr=attr,
         visible=page.in_navigation,
     )
-    return n
+    return ret_node
 
 class CMSMenu(Menu):
     
@@ -100,7 +109,7 @@ class CMSMenu(Menu):
 menu_pool.register_menu(CMSMenu)
 
 class NavExtender(Modifier):
-    def modify(self, request, nodes, namespace, id, post_cut, breadcrumb):
+    def modify(self, request, nodes, namespace, root_id, post_cut, breadcrumb):
         if post_cut:
             return nodes
         exts = []
@@ -148,7 +157,7 @@ menu_pool.register_modifier(NavExtender)
 
 
 class SoftRootCutter(Modifier):
-    def modify(self, request, nodes, namespace, id, post_cut, breadcrumb):
+    def modify(self, request, nodes, namespace, root_id, post_cut, breadcrumb):
         if post_cut or not settings.CMS_SOFTROOT:
             return nodes
         selected = None
